@@ -16,7 +16,7 @@ import org.apache.commons.lang3.RandomStringUtils;
 
 public class DictTest {
     public static void main(String[] args) throws IOException {
-        String[] dict = new String[1000 * 100];
+        String[] dict = new String[1000 * 1000];
         for (int i = 0; i < dict.length; i++) {
             dict[i] = gen();
         }
@@ -39,9 +39,12 @@ public class DictTest {
                 pos[i] = in.readInt();
             }
 
-            System.out.println("--------------");
-            System.out.println(get(in, pos, 50));
-            System.out.println(get(in, pos, 51));
+            System.out.println(get(in, pos, 50000));
+
+
+//            System.out.println("--------------");
+//            System.out.println(get(in, pos, 50));
+//            System.out.println(get(in, pos, 51));
             in.close();
         }
         FileUtils.deleteQuietly(file);
@@ -70,6 +73,7 @@ public class DictTest {
     }
 
     public static String get(DataInputStream in, int[] pos, int n) throws IOException {
+        long t1 = System.currentTimeMillis();
         int p = pos[n - 1];
         int l = pos[n] - p;
         byte[] r = new byte[l];
@@ -77,7 +81,9 @@ public class DictTest {
         in.skip(p);
         in.read(r);
         in.reset();
-        return new String(r, Charset.forName("UTF-8"));
+        String s = new String(r, Charset.forName("UTF-8"));
+        System.out.println("duration:" + (System.currentTimeMillis() - t1));
+        return s;
     }
 
     public static String gen() {
