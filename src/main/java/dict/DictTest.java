@@ -28,6 +28,15 @@ public class DictTest {
     }
 
     @Test
+    public void testMemory() {
+        String[] dict = new String[1000 * 1000];
+        for (int i = 0; i < dict.length; i++) {
+            dict[i] = gen();
+        }
+        MemoryMeterUtil.measure(dict);
+    }
+
+    @Test
     public void read() throws IOException {
         String dictName = "dict";
         write(dictName);
