@@ -1,55 +1,51 @@
 package dict;
 
-import java.io.ByteArrayInputStream;
-import java.io.DataInputStream;
+import org.apache.commons.io.output.ByteArrayOutputStream;
+import org.apache.commons.lang3.RandomStringUtils;
+import org.junit.Test;
+
 import java.io.DataOutputStream;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.io.RandomAccessFile;
 import java.nio.charset.Charset;
 import java.util.Random;
 
-import org.apache.commons.io.FileUtils;
-import org.apache.commons.io.output.ByteArrayOutputStream;
-import org.apache.commons.lang3.RandomStringUtils;
-
 public class DictTest {
-    public static void main(String[] args) throws IOException {
+
+    @Test
+    public void write() throws IOException {
         String[] dict = new String[5 * 1000 * 1000];
         for (int i = 0; i < dict.length; i++) {
             dict[i] = gen();
         }
-        //        System.out.println("dict size in mem:");
-        //        MemoryMeterUtil.measure(dict);
+        writeDict(dict);
+    }
 
-        //for validate
-        //printOri(dict);
-
-//        writeDict(dict);
-
+    @Test
+    public void read() throws FileNotFoundException {
         File file = new File("dict");
-        try (ByteArrayInputStream bis = new ByteArrayInputStream(FileUtils.readFileToByteArray(file))) {
 
-            DataInputStream in = new DataInputStream(bis);
-            int len = in.readInt();
+        try (RandomAccessFile r = new RandomAccessFile(file, "r")) {
+            int len = r.readInt();
 
             int[] pos = new int[len];
             for (int i = 0; i < pos.length; i++) {
-                pos[i] = in.readInt();
+                pos[i] = r.readInt();
             }
 
             long t1 = System.currentTimeMillis();
             for (int i = 0; i < 1000000; i++) {
-                get(in, pos, new Random().nextInt(5 * 1000 * 1000) + 1);
+                get(r, pos, new Random().nextInt(5 * 1000 * 1000) + 1);
             }
             System.out.println("duration:" + (System.currentTimeMillis() - t1));
-
-//            System.out.println(get(in, pos, 50000));
-
-            in.close();
+        } catch (IOException e) {
+            e.printStackTrace();
         }
-//        FileUtils.deleteQuietly(file);
+
     }
 
     private static void printOri(String[] dict) {
@@ -74,18 +70,13 @@ public class DictTest {
         }
     }
 
-    public static String get(DataInputStream in, int[] pos, int n) throws IOException {
-//        long t1 = System.currentTimeMillis();
+    public static String get(RandomAccessFile in, int[] pos, int n) throws IOException {
         int p = pos[n - 1];
         int l = pos[n] - p;
         byte[] r = new byte[l];
-        in.mark(l);
-        in.skip(p);
+        in.seek(p);
         in.read(r);
-        in.reset();
-        String s = new String(r, Charset.forName("UTF-8"));
-//        System.out.println("duration:" + (System.currentTimeMillis() - t1));
-        return s;
+        return new String(r, Charset.forName("UTF-8"));
     }
 
     public static String gen() {
