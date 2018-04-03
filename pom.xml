@@ -4,8 +4,8 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>a</groupId>
-    <artifactId>a</artifactId>
+    <groupId>dict</groupId>
+    <artifactId>dict</artifactId>
     <version>1.0-SNAPSHOT</version>
     <build>
         <plugins>
@@ -17,6 +17,44 @@
                     <target>1.7</target>
                 </configuration>
             </plugin>
+
+            <!-- copies java agent dependency into the target directory -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <version>2.8</version>
+                <executions>
+                    <execution>
+                        <id>copy-dependencies</id>
+                        <phase>generate-test-resources</phase>
+                        <goals>
+                            <goal>copy</goal>
+                        </goals>
+                        <configuration>
+                            <artifactItems>
+                                <artifactItem>
+                                    <groupId>com.github.jbellis</groupId>
+                                    <artifactId>jamm</artifactId>
+                                    <version>0.2.5</version>
+                                    <outputDirectory>${project.build.directory}
+                                    </outputDirectory>
+                                    <destFileName>jamm.jar</destFileName>
+                                </artifactItem>
+                            </artifactItems>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- executes test with java agent options of the JVM -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>2.14</version>
+                <configuration>
+                    <argLine>-javaagent:${project.build.directory}/jamm.jar</argLine>
+                </configuration>
+            </plugin>
         </plugins>
     </build>
     <!-- Calcite Version -->
@@ -25,7 +63,15 @@
         <calcite.version>1.12.0</calcite.version>
         <avatica.version>1.9.0</avatica.version>
     </properties>
+
     <dependencies>
+        <!-- jamm java agent -->
+        <dependency>
+            <groupId>com.github.stephenc</groupId>
+            <artifactId>jamm</artifactId>
+            <version>RELEASE</version>
+        </dependency>
+
         <!-- Calcite dependencies -->
         <dependency>
             <groupId>org.apache.calcite</groupId>
