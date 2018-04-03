@@ -46,8 +46,8 @@ public class DictTest {
         }
 
         System.out.println("--------------");
-        System.out.println(get(in, pos, 50));
-        System.out.println(get(in, pos, 51));
+//        System.out.println(get(in, pos, 50));
+//        System.out.println(get(in, pos, 51));
 
     }
 }

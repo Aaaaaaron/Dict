@@ -1,12 +1,7 @@
 package dict;
 
-import org.apache.commons.io.output.ByteArrayOutputStream;
-import org.apache.commons.lang3.RandomStringUtils;
-import org.junit.Test;
-
 import java.io.DataOutputStream;
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -14,11 +9,16 @@ import java.io.RandomAccessFile;
 import java.nio.charset.Charset;
 import java.util.Random;
 
+import org.apache.commons.io.output.ByteArrayOutputStream;
+import org.apache.commons.lang3.RandomStringUtils;
+import org.junit.Test;
+
 public class DictTest {
+    private int CAP = 1000;
 
     @Test
     public void write() throws IOException {
-        String[] dict = new String[5 * 1000 * 1000];
+        String[] dict = new String[CAP];
         for (int i = 0; i < dict.length; i++) {
             dict[i] = gen();
         }
@@ -26,7 +26,8 @@ public class DictTest {
     }
 
     @Test
-    public void read() throws FileNotFoundException {
+    public void read() throws IOException {
+        write();
         File file = new File("dict");
 
         try (RandomAccessFile r = new RandomAccessFile(file, "r")) {
@@ -39,7 +40,7 @@ public class DictTest {
 
             long t1 = System.currentTimeMillis();
             for (int i = 0; i < 1000000; i++) {
-                get(r, pos, new Random().nextInt(5 * 1000 * 1000) + 1);
+                get(r, pos, new Random().nextInt(CAP));
             }
             System.out.println("duration:" + (System.currentTimeMillis() - t1));
         } catch (IOException e) {
@@ -71,11 +72,18 @@ public class DictTest {
     }
 
     public static String get(RandomAccessFile in, int[] pos, int n) throws IOException {
-        int p = pos[n - 1];
-        int l = pos[n] - p;
-        byte[] r = new byte[l];
-        in.seek(p);
-        in.read(r);
+        byte[] r;
+        if (n == 0) {
+            r = new byte[pos[0]];
+            in.read(r);
+        } else {
+            int p = pos[n - 1];
+            int l = pos[n] - p;
+            r = new byte[l];
+            in.seek(p);
+            in.read(r);
+
+        }
         return new String(r, Charset.forName("UTF-8"));
     }
 
