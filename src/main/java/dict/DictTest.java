@@ -7,13 +7,14 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.RandomAccessFile;
+import java.nio.MappedByteBuffer;
+import java.nio.channels.FileChannel;
 import java.nio.charset.Charset;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Random;
 
 import org.apache.commons.io.output.ByteArrayOutputStream;
 import org.apache.commons.lang3.RandomStringUtils;
+import org.junit.Ignore;
 import org.junit.Test;
 
 public class DictTest {
@@ -25,9 +26,11 @@ public class DictTest {
             dict[i] = gen();
         }
         writeDict(dict, dictName);
+        printOri(dict);
     }
 
     @Test
+    @Ignore
     public void testMemory() {
         String[] dict = new String[1000 * 1000];
         for (int i = 0; i < dict.length; i++) {
@@ -38,52 +41,63 @@ public class DictTest {
 
     @Test
     public void read() throws IOException {
+        CAP = 1000;
         String dictName = "dict";
         write(dictName);
 
         File file = new File(dictName);
-        try (RandomAccessFile r = new RandomAccessFile(file, "r")) {
-            int len = r.readInt();
+        try (FileChannel fc = new RandomAccessFile(file, "r").getChannel()) {
+            MappedByteBuffer buffer = fc.map(FileChannel.MapMode.READ_ONLY, 0, fc.size());
+            int len = buffer.getInt();
 
             int[] pos = new int[len];
             for (int i = 0; i < pos.length; i++) {
-                pos[i] = r.readInt();
+                pos[i] = buffer.getInt();
             }
 
             long t1 = System.currentTimeMillis();
+            System.out.println("------------");
+            System.out.println(get(buffer, pos, 0));
+            System.out.println(get(buffer, pos, 50));
+            System.out.println(get(buffer, pos, 51));
+            System.out.println(get(buffer, pos, 49));
+
+            /*
             for (int i = 0; i < CAP; i++) {
-                get(r, pos, new Random().nextInt(CAP));
+                get(buffer, pos, new Random().nextInt(CAP));
             }
+*/
             System.out.println("duration:" + (System.currentTimeMillis() - t1));
         }
     }
 
     @Test
     public void testSense() throws IOException {
-//        simulation(1, 1_000_000); // baseline duration:3621
-//        simulation(1, 10_000); // baseline duration:3487
-//        simulation(3, 10_000); // duration:10746
-//        simulation(3, 10_0000); // duration:10579
-//        simulation(6, 10_000); // duration:24899
-//        simulation(10, 10_000); // duration:48514
-//        simulation(20, 10_000); // duration:103165
-//        simulation(30, 10_000); // duration:146469
-     }
+        //        simulation(1, 1_000_000); // baseline duration:3621
+        //        simulation(1, 10_000); // baseline duration:3487
+        //        simulation(3, 10_000); // duration:10746
+        //        simulation(3, 10_0000); // duration:10579
+        //        simulation(6, 10_000); // duration:24899
+        //        simulation(10, 10_000); // duration:48514
+        //        simulation(20, 10_000); // duration:103165
+        //        simulation(30, 10_000); // duration:146469
+        //        simulation(50, 10_000); // duration:
+    }
 
-    public void simulation(int cols, int readOnetime) throws IOException {
+    /*public void simulation(int cols, int readOnetime) throws IOException {
         List<RandomAccessFile> ins = new ArrayList<>(cols);
         for (int i = 0; i < cols; i++) {
             String dictName = "dict" + i;
             write(dictName);
             ins.add(getInputStream(dictName));
         }
-
+    
         List<int[]> headers = new ArrayList<>(cols);
-
+    
         for (int i = 0; i < cols; i++) {
             headers.add(getHeader(ins.get(i)));
         }
-
+    
         long t1 = System.currentTimeMillis();
         for (int i = 0; i < CAP / readOnetime; i++) { // rounds
             for (int k = 0; k < cols; k++) { // simulation n cols
@@ -93,7 +107,7 @@ public class DictTest {
             }
         }
         System.out.println("duration:" + (System.currentTimeMillis() - t1));
-    }
+    }*/
 
     private int[] getHeader(RandomAccessFile in) throws IOException {
         int len = in.readInt();
@@ -131,18 +145,17 @@ public class DictTest {
         }
     }
 
-    public static String get(RandomAccessFile in, int[] pos, int n) throws IOException {
+    public static String get(MappedByteBuffer buffer, int[] pos, int n) throws IOException {
         byte[] r;
         if (n == 0) {
             r = new byte[pos[0]];
-            in.read(r);
+            buffer.get(r);
         } else {
             int p = pos[n - 1];
             int l = pos[n] - p;
             r = new byte[l];
-            in.seek(p);
-            in.read(r);
-
+            buffer.position(p);
+            buffer.get(r);
         }
         return new String(r, Charset.forName("UTF-8"));
     }
