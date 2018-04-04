@@ -1,11 +1,8 @@
 package dict;
 
-import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.OutputStream;
 import java.io.RandomAccessFile;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
@@ -14,7 +11,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
-import org.apache.commons.io.output.ByteArrayOutputStream;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
@@ -33,7 +29,7 @@ public class DictTestForHDFS {
             dict[i] = gen();
         }
         writeDict(dict, dictName);
-        printOri(dict);
+//        printOri(dict);
     }
 
     @Test
@@ -53,7 +49,7 @@ public class DictTestForHDFS {
         write(dictName);
 
         Path p = new Path("/Users/jiatao.tao/Documents/test_dict/" + dictName + ".dict");
-        try (FSDataInputStream fis = p.getFileSystem(new Configuration()).open(p)){
+        try (FSDataInputStream fis = p.getFileSystem(new Configuration()).open(p)) {
 
             int len = fis.readInt();
             int[] pos = new int[len];
@@ -77,67 +73,56 @@ public class DictTestForHDFS {
         }
     }
 
-/*    @Test
+    @Test
     public void testSense() throws IOException {
-        //        simulation(1, 1_000_000); // baseline duration:3621
-        //        simulation(1, 10_000); // baseline duration:3487
-        //        simulation(3, 10_000); // duration:10746
-        //        simulation(3, 10_0000); // duration:10579
-        //        simulation(6, 10_000); // duration:24899
-        //        simulation(10, 10_000); // duration:48514
-        //        simulation(20, 10_000); // duration:103165
-        //        simulation(30, 10_000); // duration:146469
-        //        simulation(50, 10_000); // duration:
-
         simulation(1, 1_000_000); // baseline duration:372
-        simulation(1, 10_000); // baseline duration:355
-        simulation(3, 10_000); // duration:1116
-        simulation(3, 10_0000); // duration:1099
+//        simulation(1, 10_000); // baseline duration:355
+//        simulation(3, 10_000); // duration:1116
+/*        simulation(3, 10_0000); // duration:1099
         simulation(6, 10_000); // duration:2282
         simulation(10, 10_000); // duration:4032
         simulation(20, 10_000); // duration:7835
         simulation(30, 10_000); // duration:12096
-        simulation(50, 10_000); // duration:20335
+        simulation(50, 10_000); // duration:20335*/
     }
 
     public void simulation(int cols, int readOnetime) throws IOException {
-        List<MappedByteBuffer> buffers = new ArrayList<>(cols);
+        List<FSDataInputStream> in = new ArrayList<>(cols);
         for (int i = 0; i < cols; i++) {
             String dictName = "dict" + i;
             write(dictName);
-            buffers.add(getMappedByteBuffer(dictName));
+            in.add(getFSDataInputStream(dictName));
         }
 
         List<int[]> headers = new ArrayList<>(cols);
 
         for (int i = 0; i < cols; i++) {
-            headers.add(getHeader(buffers.get(i)));
+            headers.add(getHeader(in.get(i)));
         }
 
         long t1 = System.currentTimeMillis();
         for (int i = 0; i < CAP / readOnetime; i++) { // rounds
             for (int k = 0; k < cols; k++) { // simulation n cols
                 for (int j = 0; j < readOnetime; j++) { // n rows per col and round
-                    get(buffers.get(k), headers.get(k), new Random().nextInt(CAP));
+                    get(in.get(k), headers.get(k), new Random().nextInt(CAP));
                 }
             }
         }
         System.out.println("duration:" + (System.currentTimeMillis() - t1));
-    }*/
+    }
 
-    private int[] getHeader(MappedByteBuffer buf) throws IOException {
-        int len = buf.getInt();
+    private int[] getHeader(FSDataInputStream buf) throws IOException {
+        int len = buf.readInt();
         int[] pos = new int[len];
         for (int i = 0; i < pos.length; i++) {
-            pos[i] = buf.getInt();
+            pos[i] = buf.readInt();
         }
         return pos;
     }
 
-    private MappedByteBuffer getMappedByteBuffer(String dictName) throws IOException {
-        File file = new File(dictName);
-        FileChannel fc = new RandomAccessFile(file, "r").getChannel();
-        return fc.map(FileChannel.MapMode.READ_ONLY, 0, fc.size());
+    private FSDataInputStream getFSDataInputStream(String dictName) throws IOException {
+        Path p = new Path("/Users/jiatao.tao/Documents/test_dict/" + dictName + ".dict");
+        return p.getFileSystem(new Configuration()).open(p);
     }
 
     private static void printOri(String[] dict) {
