@@ -151,10 +151,11 @@ public class DictTest {
             r = new byte[pos[0]];
             buffer.get(r);
         } else {
+            int base = 4 * pos.length + 4;
             int p = pos[n - 1];
             int l = pos[n] - p;
             r = new byte[l];
-            buffer.position(p);
+            buffer.position(p + base);
             buffer.get(r);
         }
         return new String(r, Charset.forName("UTF-8"));
