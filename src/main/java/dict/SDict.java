@@ -18,6 +18,8 @@
 
 package dict;
 
+
+import javax.annotation.concurrent.ThreadSafe;
 import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
@@ -90,20 +92,75 @@ public class SDict {
         }
     }
 
-    private byte[] get(int id) {
+    public void threadSafeRead(DataInput in) throws IOException {
+        FileChannel fc = ((RandomAccessFile) in).getChannel();
+        byteBuffer = fc.map(FileChannel.MapMode.READ_ONLY, 0, fc.size());
+
+        int len = byteBuffer.getInt(0);
+
+        pos = new int[len];
+        for (int i = 0; i < pos.length; i++) {
+            pos[i] = byteBuffer.getInt(i * 4 + 4);
+        }
+    }
+
+    public byte[] get(int id) {
         byte[] r;
         int base = 4 * pos.length + 4;
+        int index;
         if (id == 0) {
             r = new byte[pos[0]];
-            byteBuffer.position(base);
-            byteBuffer.get(r);
+            index = base;
         } else {
             int p = pos[id - 1];
             int l = pos[id] - p;
             r = new byte[l];
-            byteBuffer.position(p + base);
-            byteBuffer.get(r);
+            index = p + base;
+        }
+        byteBuffer.position(index);
+        byteBuffer.get(r);
+        return r;
+    }
+
+    public byte[] threadSafeGet(int id) {
+        byte[] r;
+        int base = 4 * pos.length + 4;
+        int index;
+        if (id == 0) {
+            r = new byte[pos[0]];
+            index = base;
+        } else {
+            int p = pos[id - 1];
+            int l = pos[id] - p;
+            r = new byte[l];
+            index = p + base;
+        }
+        for (int i = 0; i < r.length; i++) {
+            r[i] = byteBuffer.get(index + i);
         }
         return r;
     }
+
+/*
+    public byte[] get3(int id) {
+        byte[] r;
+        int base = 4 * pos.length + 4;
+        int index;
+        if (id == 0) {
+            r = new byte[pos[0]];
+            index = base;
+        } else {
+            int p = pos[id - 1];
+            int l = pos[id] - p;
+            r = new byte[l];
+            index = p + base;
+        }
+
+        Bits.swap(Platform.getInt(byteBuffer.));
+        for (int i = 0; i < r.length; i++) {
+            r[i] = byteBuffer.get(index + i);
+        }
+        return r;
+    }
+*/
 }
