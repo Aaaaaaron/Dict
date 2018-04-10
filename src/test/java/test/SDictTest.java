@@ -31,20 +31,12 @@ public class SDictTest {
         }
 
         RandomAccessFile in = new RandomAccessFile(f, "r");
-        SDict r = new SDict();
-        r.threadSafeRead(in);
+        SDict r = new SDict(in);
+        r.init();
 
         Assert.assertArrayEquals(dict[99].getBytes(), r.get(99));
-        Assert.assertArrayEquals(dict[99].getBytes(), r.get(99));
-        Assert.assertArrayEquals(dict[99].getBytes(), r.get(99));
-
-        Assert.assertArrayEquals(dict[50].getBytes(), r.threadSafeGet(50));
-        Assert.assertArrayEquals(dict[50].getBytes(), r.threadSafeGet(50));
-        Assert.assertArrayEquals(dict[50].getBytes(), r.threadSafeGet(50));
-
-/*        Assert.assertArrayEquals(dict[0].getBytes(), r.get3(0));
-        Assert.assertArrayEquals(dict[0].getBytes(), r.get3(0));
-        Assert.assertArrayEquals(dict[0].getBytes(), r.get3(0));*/
+        Assert.assertArrayEquals(dict[50].getBytes(), r.get(50));
+        Assert.assertArrayEquals(dict[0].getBytes(), r.get(0));
     }
 
     @Test
@@ -63,8 +55,8 @@ public class SDictTest {
         System.out.println("write down.");
 
         RandomAccessFile in = new RandomAccessFile(f, "r");
-        SDict r = new SDict();
-        r.read(in);
+        SDict r = new SDict(in);
+        r.init();
 
         int nThreads = 10;
         ExecutorService executorService = Executors.newFixedThreadPool(nThreads);
@@ -80,14 +72,14 @@ public class SDictTest {
         private SDict d;
         private String[] ori;
 
-        public TestRunnable(SDict r, String[] ori) {
+        TestRunnable(SDict r, String[] ori) {
             this.d = r;
             this.ori = ori;
         }
 
         public void run(){
             int index = new Random().nextInt(1000 * 1000);
-            Assert.assertArrayEquals(ori[index].getBytes(), d.threadSafeGet(index));
+            Assert.assertArrayEquals(ori[index].getBytes(), d.get(index));
         }
     }
 
@@ -107,9 +99,8 @@ public class SDictTest {
         }
 
         RandomAccessFile in = new RandomAccessFile(f, "r");
-        SDict r = new SDict();
-        r.read(in);
-
+        SDict r = new SDict(in);
+        r.init();
 
         long t1 = System.currentTimeMillis();
         for (int i = 0; i < 1000000000; i++) {
@@ -119,7 +110,7 @@ public class SDictTest {
 
         long t2 = System.currentTimeMillis();
         for (int i = 0; i < 1000000000; i++) {
-            r.threadSafeGet(new Random().nextInt(cap));
+            r.get(new Random().nextInt(cap));
         }
         System.out.println("duration:" + (System.currentTimeMillis() - t2));
     }

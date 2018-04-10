@@ -18,54 +18,59 @@
 
 package dict;
 
-
-import javax.annotation.concurrent.ThreadSafe;
-import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
 import java.io.RandomAccessFile;
+import java.lang.reflect.Method;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 
+import sun.nio.ch.FileChannelImpl;
+
 // dict for query
-public class SDict {
+public class SDict implements CloseableSizedFile {
     private int[] pos;
     private MappedByteBuffer byteBuffer;
 
     // only need when write dict
-    transient private String[] values;
+    private String[] values;
+
+    // keep for closing
+    private RandomAccessFile raf;
+    private FileChannel fc;
 
     public SDict() { // default constructor for Writable interface
     }
 
-    public SDict(String[] values) {
-        init(values);
+    public SDict(RandomAccessFile in) {
+        raf = in;
     }
 
-    private void init(String[] values) {
+    public SDict(String[] values) {
         int total = 0;
         this.values = values;
-        this.pos = new int[values.length];
-        for (int i = 0; i < values.length; i++) {
-            int currentLen = values[i].getBytes().length;
+        this.pos = new int[this.values.length];
+        for (int i = 0; i < this.values.length; i++) {
+            int currentLen = this.values[i].getBytes().length;
             this.pos[i] = (total += currentLen);
         }
     }
 
-    public int getMinId() {
-        return 0;
-    }
+    // lazy file mapping.
+    @Override
+    public void init() {
+        try {
+            fc = raf.getChannel();
+            byteBuffer = fc.map(FileChannel.MapMode.READ_ONLY, 0, fc.size());
 
-    public int getMaxId() {
-        return pos.length - 1;
-    }
-
-    public int getSizeOfId() {
-        return 4; //size of int
-    }
-
-    public byte[] getValueBytesFromIdImpl(int id) {
-        return get(id);
+            int len = byteBuffer.getInt();
+            pos = new int[len];
+            for (int i = 0; i < pos.length; i++) {
+                pos[i] = byteBuffer.getInt();
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("Can not init sdict.", e);
+        }
     }
 
     public void write(DataOutput out) throws IOException {
@@ -81,30 +86,42 @@ public class SDict {
         }
     }
 
-    public void read(DataInput in) throws IOException {
-        FileChannel fc = ((RandomAccessFile) in).getChannel();
-        byteBuffer = fc.map(FileChannel.MapMode.READ_ONLY, 0, fc.size());
-        int len = byteBuffer.getInt();
-
-        pos = new int[len];
-        for (int i = 0; i < pos.length; i++) {
-            pos[i] = byteBuffer.getInt();
+    @Override
+    public long getSizeInBytes() {
+        try {
+            return raf.length();
+        } catch (IOException e) {
+            throw new RuntimeException("Can not get file length.", e);
         }
     }
 
-    public void threadSafeRead(DataInput in) throws IOException {
-        FileChannel fc = ((RandomAccessFile) in).getChannel();
-        byteBuffer = fc.map(FileChannel.MapMode.READ_ONLY, 0, fc.size());
-
-        int len = byteBuffer.getInt(0);
-
-        pos = new int[len];
-        for (int i = 0; i < pos.length; i++) {
-            pos[i] = byteBuffer.getInt(i * 4 + 4);
-        }
-    }
-
+    // thread safe
     public byte[] get(int id) {
+        byte[] r;
+        int base = 4 * pos.length + 4;
+        int index;
+        try {
+            if (id == 0) {
+                r = new byte[pos[0]];
+                index = base;
+            } else {
+                int p = pos[id - 1];
+                int l = pos[id] - p;
+                r = new byte[l];
+                index = p + base;
+            }
+            for (int i = 0; i < r.length; i++) {
+                r[i] = byteBuffer.get(index + i);
+            }
+        } catch (ArrayIndexOutOfBoundsException e) {
+            return null;
+        }
+        return r;
+    }
+
+    /*
+    
+    public byte[] get2(int id) {
         byte[] r;
         int base = 4 * pos.length + 4;
         int index;
@@ -121,27 +138,7 @@ public class SDict {
         byteBuffer.get(r);
         return r;
     }
-
-    public byte[] threadSafeGet(int id) {
-        byte[] r;
-        int base = 4 * pos.length + 4;
-        int index;
-        if (id == 0) {
-            r = new byte[pos[0]];
-            index = base;
-        } else {
-            int p = pos[id - 1];
-            int l = pos[id] - p;
-            r = new byte[l];
-            index = p + base;
-        }
-        for (int i = 0; i < r.length; i++) {
-            r[i] = byteBuffer.get(index + i);
-        }
-        return r;
-    }
-
-/*
+    
     public byte[] get3(int id) {
         byte[] r;
         int base = 4 * pos.length + 4;
@@ -155,12 +152,25 @@ public class SDict {
             r = new byte[l];
             index = p + base;
         }
-
+    
         Bits.swap(Platform.getInt(byteBuffer.));
         for (int i = 0; i < r.length; i++) {
             r[i] = byteBuffer.get(index + i);
         }
         return r;
     }
-*/
+    */
+
+    @Override
+    public void close() {
+        try {
+            fc.close();
+            raf.close();
+            Method m = FileChannelImpl.class.getDeclaredMethod("unmap", MappedByteBuffer.class);
+            m.setAccessible(true);
+            m.invoke(FileChannelImpl.class, byteBuffer);
+        } catch (Exception e) {
+            throw new RuntimeException("Can not release file mapping memory.", e);
+        }
+    }
 }
